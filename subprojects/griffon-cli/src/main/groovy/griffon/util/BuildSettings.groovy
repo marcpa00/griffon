@@ -15,8 +15,6 @@
  */
 package griffon.util
 
-import java.util.concurrent.ConcurrentHashMap
-import java.util.regex.Pattern
 import org.apache.ivy.core.report.ResolveReport
 import org.apache.ivy.plugins.repository.TransferEvent
 import org.apache.ivy.plugins.repository.TransferListener
@@ -30,9 +28,13 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.core.io.Resource
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver
+
+import java.util.concurrent.ConcurrentHashMap
+import java.util.regex.Pattern
+
+import static griffon.util.ArtifactSettings.*
 import static griffon.util.GriffonExceptionHandler.sanitize
 import static griffon.util.GriffonNameUtils.capitalize
-import static org.codehaus.griffon.artifacts.ArtifactUtils.*
 import static org.codehaus.griffon.cli.CommandLineConstants.*
 
 /**
@@ -160,7 +162,7 @@ class BuildSettings extends AbstractBuildSettings {
      * The compiler target level to use
      */
     String compilerTargetLevel = null
-    
+
     String compilerDebug = 'yes'
 
     /** <code>true</code> if the default environment for a script should be used.  */
@@ -452,6 +454,7 @@ class BuildSettings extends AbstractBuildSettings {
 
     final Map<String, String> systemProperties = [:]
     public final PluginSettings pluginSettings
+    public final ArtifactSettings artifactSettings
 
     BuildSettings() {
         this(null, null)
@@ -468,6 +471,7 @@ class BuildSettings extends AbstractBuildSettings {
     BuildSettings(File griffonHome, File baseDir) {
         userHome = new File(System.getProperty("user.home"))
         pluginSettings = new PluginSettings(this)
+        artifactSettings = new ArtifactSettings(this)
 
         if (griffonHome) this.griffonHome = griffonHome
 
@@ -497,9 +501,18 @@ class BuildSettings extends AbstractBuildSettings {
 
         resolveResourcesClosure = {String pattern ->
             try {
-                return RESOLVER.getResources(pattern)
-            }
-            catch (Throwable e) {
+                Resource[] resources = RESOLVER.getResources(pattern)
+                // Filter hidden folders from OSX
+                if (resources) {
+                    List<Resource> tmp = []
+                    for (Resource r : resources) {
+                        if (r.URL.toString().contains('.DS_Store')) continue
+                        tmp.add(r)
+                    }
+                    resources = tmp.toArray(new Resource[tmp.size()])
+                }
+                return resources
+            } catch (Throwable e) {
                 return [] as Resource[]
             }
         }
@@ -537,7 +550,8 @@ class BuildSettings extends AbstractBuildSettings {
         }
 
         includePluginScriptClosure = {String pluginName, String scriptName ->
-            File pluginHome = findArtifactDirForName(Plugin.TYPE, pluginName)
+            File pluginHome = artifactSettings.findArtifactDirForName(Plugin.TYPE, pluginName)
+            if (!pluginHome) pluginHome = artifactSettings.findArtifactDirForName(Plugin.TYPE, pluginName, true)
             if (!pluginHome) return
             File scriptFile = new File(pluginHome, "/scripts/${scriptName}.groovy")
             if (scriptFile.exists()) includeTargets << scriptFile
@@ -1025,7 +1039,7 @@ class BuildSettings extends AbstractBuildSettings {
                 LOG.debug("Adding the following dependencies to $conf: ${newDependencies.name.join(', ')}")
             }
             this."get${capitalize(conf)}Dependencies"().addAll(newDependencies)
-            for (File jar: newDependencies) {
+            for (File jar : newDependencies) {
                 getClass().classLoader.rootLoader.addURL(jar.toURI().toURL())
             }
         }

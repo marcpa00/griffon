@@ -5,12 +5,15 @@ log4j = {
         console name: 'stdout', layout: pattern(conversionPattern: '%d [%t] %-5p %c - %m%n')
     }
 
-    error  'org.codehaus.griffon'
+    error 'org.codehaus.griffon'
 
-    info   'griffon.util',
-           'griffon.core',
-           'griffon.swing',
-           'griffon.app'
+    info 'griffon.util',
+            'griffon.core',
+            'griffon.swing',
+            'griffon.app'
+
+    warn  'griffon.plugins.i18n',
+          'org.springframework'
 }
 
 i18n.provider = 'i18n-support'

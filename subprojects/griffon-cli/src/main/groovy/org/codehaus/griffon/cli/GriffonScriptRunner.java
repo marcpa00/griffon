@@ -27,12 +27,11 @@ import org.apache.log4j.LogManager;
 import org.apache.tools.ant.Project;
 import org.codehaus.gant.GantBinding;
 import org.codehaus.griffon.artifacts.ArtifactRepositoryRegistry;
-import org.codehaus.griffon.artifacts.ArtifactUtils;
-import org.codehaus.griffon.artifacts.model.Plugin;
 import org.codehaus.griffon.cli.parsing.CommandLine;
 import org.codehaus.griffon.cli.parsing.CommandLineParser;
 import org.codehaus.griffon.cli.parsing.DefaultCommandLine;
 import org.codehaus.griffon.cli.parsing.ParseException;
+import org.codehaus.griffon.plugins.PluginInfo;
 import org.codehaus.griffon.runtime.logging.Log4jConfig;
 import org.codehaus.groovy.runtime.DefaultGroovyMethods;
 import org.springframework.core.io.Resource;
@@ -50,7 +49,6 @@ import static griffon.util.GriffonExceptionHandler.sanitize;
 import static griffon.util.GriffonNameUtils.isBlank;
 import static java.util.Arrays.binarySearch;
 import static java.util.Arrays.sort;
-import static org.codehaus.griffon.artifacts.ArtifactUtils.getInstalledArtifacts;
 
 /**
  * Class that handles Griffon command line interface for running scripts
@@ -79,6 +77,7 @@ public class GriffonScriptRunner {
     public static final String VAR_SCRIPT_ENV = "scriptEnv";
     public static final String VAR_SCRIPT_ARGS_MAP = "argsMap";
     public static final String VAR_SCRIPT_UNPARSED_ARGS = "unparsedArgs";
+    public static final String VAR_SYS_PROPERTIES = "sysProperties";
     public static final String KEY_SCRIPT_ARGS = "griffon.cli.args";
 
     /**
@@ -188,12 +187,12 @@ public class GriffonScriptRunner {
     }
 
     private static ScriptAndArgs processArgumentsAndReturnScriptName(CommandLine commandLine) {
-        processSystemArguments(commandLine);
-        return processAndReturnArguments(commandLine);
+        ScriptAndArgs info = new ScriptAndArgs();
+        processSystemArguments(commandLine, info);
+        return processAndReturnArguments(commandLine, info);
     }
 
-    private static ScriptAndArgs processAndReturnArguments(CommandLine commandLine) {
-        ScriptAndArgs info = new ScriptAndArgs();
+    private static ScriptAndArgs processAndReturnArguments(CommandLine commandLine, ScriptAndArgs info) {
         if (Environment.isSystemSet()) {
             info.env = Environment.getCurrent().getName();
         } else if (commandLine.getEnvironment() != null) {
@@ -206,11 +205,12 @@ public class GriffonScriptRunner {
         return info;
     }
 
-    private static void processSystemArguments(CommandLine allArgs) {
+    private static void processSystemArguments(CommandLine allArgs, ScriptAndArgs info) {
         Properties systemProps = allArgs.getSystemProperties();
         if (systemProps != null) {
             for (Map.Entry<Object, Object> entry : systemProps.entrySet()) {
                 System.setProperty(entry.getKey().toString(), entry.getValue().toString());
+                info.sysProperties.put(entry.getKey().toString(), entry.getValue().toString());
             }
         }
     }
@@ -257,7 +257,8 @@ public class GriffonScriptRunner {
         String cmd = name;
         if (!isBlank(args)) cmd += " " + args;
         String[] newArgs = cmd.split(" ");
-        ScriptAndArgs script = processAndReturnArguments(getCommandLine(newArgs));
+        ScriptAndArgs script = new ScriptAndArgs();
+        processAndReturnArguments(getCommandLine(newArgs), script);
         return doExecuteCommand(script);
     }
 
@@ -265,7 +266,8 @@ public class GriffonScriptRunner {
         String cmd = env + " " + name;
         if (!isBlank(args)) cmd += " " + args;
         String[] newArgs = cmd.split(" ");
-        ScriptAndArgs script = processAndReturnArguments(getCommandLine(newArgs));
+        ScriptAndArgs script = new ScriptAndArgs();
+        processAndReturnArguments(getCommandLine(newArgs), script);
         return doExecuteCommand(script);
     }
 
@@ -382,6 +384,7 @@ public class GriffonScriptRunner {
                 binding.setVariable(VAR_SCRIPT_FILE, scriptFile);
                 binding.setVariable(VAR_SCRIPT_ARGS_MAP, script.options);
                 binding.setVariable(VAR_SCRIPT_UNPARSED_ARGS, script.unparsedArgs);
+                binding.setVariable(VAR_SYS_PROPERTIES, script.sysProperties);
                 script.name = scriptFileName;
 
                 // Setup the script to call.
@@ -419,6 +422,7 @@ public class GriffonScriptRunner {
             binding.setVariable(VAR_SCRIPT_FILE, scriptFile);
             binding.setVariable(VAR_SCRIPT_ARGS_MAP, script.options);
             binding.setVariable(VAR_SCRIPT_UNPARSED_ARGS, script.unparsedArgs);
+            binding.setVariable(VAR_SYS_PROPERTIES, script.sysProperties);
             script.name = scriptFileName;
 
             // Set up the script to call.
@@ -442,6 +446,7 @@ public class GriffonScriptRunner {
         binding.setVariable(VAR_SCRIPT_NAME, scriptName);
         binding.setVariable(VAR_SCRIPT_ARGS_MAP, script.options);
         binding.setVariable(VAR_SCRIPT_UNPARSED_ARGS, script.unparsedArgs);
+        binding.setVariable(VAR_SYS_PROPERTIES, script.sysProperties);
 
         try {
             loadScriptClass(gant, scriptName);
@@ -720,6 +725,7 @@ public class GriffonScriptRunner {
         binding.setVariable("resolveResources", c);
         binding.setVariable("griffonSettings", settings);
         binding.setVariable("pluginSettings", settings.pluginSettings);
+        binding.setVariable("artifactSettings", settings.artifactSettings);
         settings.pluginSettings.initBinding(binding);
 
         // Add other binding variables, such as Griffon version and environment.
@@ -755,13 +761,12 @@ public class GriffonScriptRunner {
         // plugins loaded by the application. The name of each variable is of
         // the form <pluginName>PluginDir.
 
-        Map<String, String> installedArtifacts = getInstalledArtifacts(Plugin.TYPE);
-        for (Map.Entry<String, String> plugin : installedArtifacts.entrySet()) {
-            String pluginName = GriffonUtil.getPropertyNameForLowerCaseHyphenSeparatedName(plugin.getKey());
-
-            String version = plugin.getValue();
+        Map<String, PluginInfo> installedArtifacts = settings.pluginSettings.getPlugins();
+        for (PluginInfo pluginInfo : installedArtifacts.values()) {
+            String pluginName = GriffonUtil.getPropertyNameForLowerCaseHyphenSeparatedName(pluginInfo.getName());
+            String version = pluginInfo.getVersion();
             binding.setVariable(pluginName + "PluginVersion", version);
-            binding.setVariable(pluginName + "PluginDir", ArtifactUtils.getInstallPathFor(Plugin.TYPE, plugin.getKey(), version));
+            binding.setVariable(pluginName + "PluginDir", pluginInfo.getDirectory());
         }
 
         return binding;
@@ -867,6 +872,7 @@ public class GriffonScriptRunner {
         public String[] unparsedArgs;
         public List<String> params = new ArrayList<String>();
         public Map<String, Object> options = new LinkedHashMap<String, Object>();
+        public Map<String, String> sysProperties = new LinkedHashMap<String, String>();
     }
 
     private GantCustomizer gantCustomizer;
@@ -927,10 +933,18 @@ public class GriffonScriptRunner {
                         targets.add("checkVersion");
                     }
                     if (!isExcludedFromDependencyResolution(scriptName)) {
+                        targets.add("resolveFrameworkDependencies");
+                        targets.add("resolveDependencies");
+                    }
+                    targets.add("loadEventHooks");
+                } else if (binarySearch(FRAMEWORK_PLUGIN_INCLUSIONS, scriptName) >= 0) {
+                    targets.add("resolveFrameworkDependencies");
+                    if (settings.isGriffonProject() && !isExcludedFromDependencyResolution(scriptName)) {
                         targets.add("resolveDependencies");
                     }
                     targets.add("loadEventHooks");
                 }
+
                 settings.debug("** " + targets + " **");
                 gant.setAllPerTargetPreHooks(DO_NOTHING_CLOSURE);
                 gant.setAllPerTargetPostHooks(DO_NOTHING_CLOSURE);
@@ -956,25 +970,29 @@ public class GriffonScriptRunner {
 
         private static String[] CONFIGURE_PROXY_EXCLUSIONS = {
                 "AddProxy", "ClearProxy", "RemoveProxy", "SetProxy", "ConfigureProxy",
-                "Help", "SetVersion", "Stats",
+                "SetVersion", "Stats",
                 "CreateAddon", "CreatePlugin", "Upgrade",
                 "CreateCommandAlias", "Doc", "ClearDependencyCache"
         };
 
         private static String[] RESOLVE_DEPENDENCIES_EXCLUSIONS = {
                 "SetVersion", "Stats", "Upgrade",
-                "CreateCommandAlias", "Doc", "UninstallPlugin",
-                "ListPluginUpdates", "_GriffonResolveDependencies"
+                "CreateCommandAlias", "Doc", "_GriffonResolveDependencies"
         };
 
         private static String[] CHECK_VERSION_EXCLUSIONS = {
                 "Upgrade"
         };
 
+        private static String[] FRAMEWORK_PLUGIN_INCLUSIONS = {
+                "CreateApp_", "CreateAddon_", "CreatePlugin_", "CreateArchetype_", "Help_"
+        };
+
         static {
             sort(CONFIGURE_PROXY_EXCLUSIONS);
             sort(RESOLVE_DEPENDENCIES_EXCLUSIONS);
             sort(CHECK_VERSION_EXCLUSIONS);
+            sort(FRAMEWORK_PLUGIN_INCLUSIONS);
         }
     }
 }

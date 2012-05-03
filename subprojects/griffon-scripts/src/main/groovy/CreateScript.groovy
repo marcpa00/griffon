@@ -20,8 +20,8 @@
  * @author Graeme Rocher (Grails 0.4)
  */
 
-import griffon.util.GriffonUtil
 import griffon.util.GriffonNameUtils
+import griffon.util.GriffonUtil
 
 includeTargets << griffonScript('_GriffonCreateArtifacts')
 
@@ -54,7 +54,8 @@ target(createScript: "Creates a Griffon Gant Script") {
     }
 
     if (argsMap['with-command-support']) {
-        commandName = className.toLowerCase()
+        // commandName = className.toLowerCase()
+        commandName = GriffonUtil.getHyphenatedName(className)
         commandScope = griffonSettings.isPluginProject() ? GriffonNameUtils.getPropertyName(griffonAppName) : 'app'
         createArtifact(
                 name:     name,

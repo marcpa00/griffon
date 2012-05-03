@@ -57,7 +57,7 @@ compilerPaths = { String classpathId ->
     javac(compilerOptions(classpathref: classpathId))
 }
 
-compileSources = { destinationDir, classpathId, sources ->
+compileProjectSources = { destinationDir, classpathId, sources ->
     if (argsMap.compileTrace) {
         println('-' * 80)
         println "[GRIFFON] compiling to ${destinationDir}"
@@ -119,13 +119,13 @@ target(name: 'compile', description: "Implementation of compilation phase",
 
         String classpathId = 'griffon.compile.classpath'
 
-        compileSrc = compileSources.curry(projectMainClassesDir)
         event('CompileSourcesStart', [])
-        compileSrc(classpathId, compilerPaths.curry(classpathId))
-        compileSrc(classpathId) {
+        compileProjectSources(projectMainClassesDir, classpathId, compilerPaths.curry(classpathId))
+        compileProjectSources(projectMainClassesDir, classpathId) {
             src(path: "${basedir}/griffon-app/conf")
             include(name: '*.groovy')
             include(name: '*.java')
+            exclude(name: 'BuildConfig.groovy')
             javac(compilerOptions(classpathref: classpathId))
         }
         ant.copy(todir: projectMainClassesDir) {
@@ -136,33 +136,33 @@ target(name: 'compile', description: "Implementation of compilation phase",
         }
         event('CompileSourcesEnd', [])
 
-        if (isPluginProject) {
-            if (cliSourceDir.exists()) {
-                ant.mkdir(dir: projectCliClassesDir)
-                ant.path(id: 'plugin.cli.compile.classpath') {
-                    path(refid: 'griffon.compile.classpath')
-                    pathElement(location: projectMainClassesDir)
-                }
-                compileSources(projectCliClassesDir, 'plugin.cli.compile.classpath') {
-                    src(path: cliSourceDir)
-                    javac(compilerOptions(classpathref: 'plugin.cli.compile.classpath'))
-                }
-                ant.copy(todir: projectCliClassesDir) {
-                    fileset(dir: "${basedir}/src/cli") {
-                        exclude(name: '**/*.java')
-                        exclude(name: '**/*.groovy')
-                        exclude(name: '**/.svn')
-                    }
+        // if (isPluginProject) {
+        if (cliSourceDir.exists()) {
+            ant.mkdir(dir: projectCliClassesDir)
+            ant.path(id: 'plugin.cli.compile.classpath') {
+                path(refid: 'griffon.compile.classpath')
+                pathElement(location: projectMainClassesDir)
+            }
+            compileProjectSources(projectCliClassesDir, 'plugin.cli.compile.classpath') {
+                src(path: cliSourceDir)
+                javac(compilerOptions(classpathref: 'plugin.cli.compile.classpath'))
+            }
+            ant.copy(todir: projectCliClassesDir) {
+                fileset(dir: "${basedir}/src/cli") {
+                    exclude(name: '**/*.java')
+                    exclude(name: '**/*.groovy')
+                    exclude(name: '**/.svn')
                 }
             }
         }
+        // }
 
         if (griffonSettings.isAddonPlugin()) {
             ant.path(id: 'addon.classpath') {
                 path(refid: "griffon.compile.classpath")
                 pathElement(location: projectMainClassesDir)
             }
-            compileSrc('addon.classpath') {
+            compileProjectSources(projectMainClassesDir, 'addon.classpath') {
                 src(path: basedir)
                 include(name: '*GriffonAddon.groovy')
                 include(name: '*GriffonAddon.java')
@@ -199,7 +199,7 @@ compileProjectTestSrc = { rootDir ->
                 pathElement(location: projectMainClassesDir)
                 pathElement(location: projectTestClassesDir)
             }
-            compileSources(projectTestClassesDir, 'projectTest.classpath') {
+            compileProjectSources(projectTestClassesDir, 'projectTest.classpath') {
                 src(path: projectTest)
                 javac(compilerOptions(classpathref: 'projectTest.classpath'))
             }

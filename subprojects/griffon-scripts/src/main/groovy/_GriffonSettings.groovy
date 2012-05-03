@@ -20,6 +20,7 @@ import org.springframework.core.io.FileSystemResource
 import org.springframework.core.io.Resource
 import org.springframework.util.FileCopyUtils
 import griffon.util.*
+
 import static org.codehaus.griffon.cli.CommandLineConstants.KEY_INTERACTIVE_MODE
 
 /**
@@ -73,6 +74,10 @@ configSlurper.setBinding(
 // No point doing this stuff more than once.
 if (getBinding().variables.containsKey("_settings_called")) return true
 _settings_called = true
+
+projectCliClassesDir = new File("${classesDir.absolutePath}/cli")
+projectMainClassesDir = new File("${classesDir.absolutePath}/main")
+projectTestClassesDir = new File("${classesDir.absolutePath}/test")
 
 /**
  * Resolves the value for a given property name. It first looks for a
@@ -449,5 +454,6 @@ buildConfig.griffon.application.mainClass = buildConfig.griffon.application.main
 resetDependencyResolution = {
     pluginSettings.clearCaches()
     runDependencyResolution = true
+    runFrameworkDependencyResolution = true
     classpathSet = false
 }

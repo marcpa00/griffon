@@ -16,8 +16,8 @@
 
 import org.codehaus.griffon.artifacts.ArtifactInstallEngine
 import org.codehaus.griffon.artifacts.model.Plugin
+
 import static griffon.util.GriffonApplicationUtils.is64Bit
-import static org.codehaus.griffon.artifacts.ArtifactUtils.artifactBase
 
 /**
  * @author Andres Almiray
@@ -30,9 +30,11 @@ _griffon_resolve_dependencies_called = true
 includeTargets << griffonScript('_GriffonArtifacts')
 
 runDependencyResolution = true
+runFrameworkDependencyResolution = true
+
 target(name: 'resolveDependencies', description: 'Resolves project and plugin dependencies',
-    prehook: null, posthook: null) {
-    if(!griffonSettings.isGriffonProject()) return
+        prehook: null, posthook: null) {
+    if (!griffonSettings.isGriffonProject()) return
 
     if (runDependencyResolution) {
         long start = System.currentTimeMillis()
@@ -43,9 +45,7 @@ target(name: 'resolveDependencies', description: 'Resolves project and plugin de
         }
 
         pluginSettings.clearCaches()
-        pluginSettings.resolveAndAddAllPluginDependencies()
-        long end = System.currentTimeMillis()
-        event 'StatusFinal', ["Plugin dependencies resolved in ${end - start} ms."]
+        pluginSettings.resolveAndAddAllPluginDependencies(false)
 
 // XXX -- NATIVE
         Map<String, List<File>> jars = [:]
@@ -61,9 +61,33 @@ target(name: 'resolveDependencies', description: 'Resolves project and plugin de
             griffonSettings.updateDependenciesFor 'test', files
         }
 // XXX -- NATIVE
+        if(projectCliClassesDir.exists()) {
+            addUrlIfNotPresent classLoader, projectCliClassesDir
+            addUrlIfNotPresent rootLoader, projectCliClassesDir
+        }
+
+        long end = System.currentTimeMillis()
+        event 'StatusFinal', ["Plugin dependencies resolved in ${end - start} ms."]
+
         runDependencyResolution = false
         // reset appName
-        if(metadata) griffonAppName = metadata.getApplicationName()
+        if (metadata) griffonAppName = metadata.getApplicationName()
+    }
+}
+
+target(name: 'resolveFrameworkDependencies', description: 'Resolves framework plugin dependencies',
+        prehook: null, posthook: null) {
+    // if (griffonSettings.isGriffonProject()) return
+
+    if (runFrameworkDependencyResolution) {
+        long start = System.currentTimeMillis()
+        event 'StatusUpdate', ['Resolving framework plugin dependencies']
+        pluginSettings.clearCaches()
+        pluginSettings.resolveAndAddAllPluginDependencies(true)
+        long end = System.currentTimeMillis()
+        event 'StatusFinal', ["Framework plugin dependencies resolved in ${end - start} ms."]
+
+        runFrameworkDependencyResolution = false
     }
 }
 
@@ -75,7 +99,7 @@ processPlatformLibraries = { Map<String, List<File>> jars, String platformId, bo
         if (list && !overwrite) return
         if (!list.contains(jar.file)) list << jar.file
     }
-    resolveResources("file:${artifactBase(Plugin.TYPE)}/*/lib/${platformId}/*.jar").each { jar ->
+    resolveResources("file:${artifactSettings.artifactBase(Plugin.TYPE)}/*/lib/${platformId}/*.jar").each { jar ->
         String pluginDir = jar.file.parentFile.parentFile
         List<File> list = jars.get(pluginDir, [])
         if (list && !overwrite) return

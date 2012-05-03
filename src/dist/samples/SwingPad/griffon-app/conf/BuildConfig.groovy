@@ -7,8 +7,8 @@ environments {
                 keystore = "${basedir}/griffon-app/conf/keys/devKeystore"
                 alias = 'development'
                 storepass = 'BadStorePassword'
-                keypass   = 'BadKeyPassword'
-                lazy      = true // only sign when unsigned
+                keypass = 'BadKeyPassword'
+                lazy = true // only sign when unsigned
             }
         }
 
@@ -96,21 +96,28 @@ signingkey {
         alias = env
         // storepass = 'BadStorePassword'
         // keypass   = 'BadKeyPassword'
-        lazy      = true // only sign when unsigned
+        lazy = true // only sign when unsigned
     }
 }
 
 griffon.project.dependency.resolution = {
-    inherits"global"
+    inherits "global"
     log "warn"
     repositories {
-        griffonPlugins()
-        griffonHome()
-        griffonCentral()
         mavenCentral()
+        griffonHome()
+        mavenRepo 'http://repository.springsource.com/maven/bundles/release'
         mavenRepo "https://repository.jboss.org/nexus/content/groups/public-jboss"
+
+        // pluginDirPath is only available when installed
+        // String basePath = pluginDirPath? "${pluginDirPath}/" : ''
+        // flatDir name: "${pluginName}LibDir", dirs: ["${basePath}lib"]
     }
-    dependencies { }
+    dependencies {
+        compile("org.springframework:org.springframework.core:$springVersion") {
+            transitive = false
+        }
+    }
 }
 
 log4j = {
@@ -121,10 +128,10 @@ log4j = {
     }
 
     error 'org.codehaus.griffon',
-          'org.springframework',
-          'org.apache.karaf',
-          'groovyx.net'
-    warn  'griffon'
+            'org.springframework',
+            'org.apache.karaf',
+            'groovyx.net'
+    warn 'griffon'
 }
 
 griffon {

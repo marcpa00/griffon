@@ -15,8 +15,8 @@
  */
 
 import org.codehaus.griffon.artifacts.model.Plugin
+
 import static griffon.util.GriffonApplicationUtils.is64Bit
-import static org.codehaus.griffon.artifacts.ArtifactUtils.artifactBase
 
 /**
  * Gant script containing the Griffon classpath setup.
@@ -29,10 +29,6 @@ if (getBinding().variables.containsKey('_griffon_classpath_called')) return
 _griffon_classpath_called = true
 
 classpathSet = false
-
-projectCliClassesDir = new File("${classesDir.absolutePath}/cli")
-projectMainClassesDir = new File("${classesDir.absolutePath}/main")
-projectTestClassesDir = new File("${classesDir.absolutePath}/test")
 
 target(name: 'classpath', description: "Sets the Griffon classpath", prehook: null, posthook: null) {
     setClasspath()
@@ -50,8 +46,6 @@ commonClasspath = {
         debug "  ${projectMainClassesDir.absolutePath}"
     }
 
-    def pluginLibDirs = pluginSettings.pluginLibDirectories.findAll {it.exists()}
-
 // XXX -- NATIVE
     def processPlatformDir = { platformId ->
         platformDir = new File("${basedir}/lib/${platformId}")
@@ -59,7 +53,7 @@ commonClasspath = {
             debug "  ${platformDir.absolutePath}"
             fileset(dir: platformDir.absolutePath)
         }
-        resolveResources("file:${artifactBase(Plugin.TYPE)}/*/lib/${platformId}").each { dir ->
+        resolveResources("file:${artifactSettings.artifactBase(Plugin.TYPE)}/*/lib/${platformId}").each { dir ->
             if (dir.file.exists()) {
                 debug "  ${dir.file.absolutePath}"
                 fileset(dir: dir.file.absolutePath)
@@ -73,7 +67,7 @@ commonClasspath = {
             debug "  ${nativeDir.absolutePath}"
             fileset(dir: nativeDir.absolutePath)
         }
-        resolveResources("file:${artifactBase(Plugin.TYPE)}/*/lib/${platformId}/native").each { dir ->
+        resolveResources("file:${artifactSettings.artifactBase(Plugin.TYPE)}/*/lib/${platformId}/native").each { dir ->
             if (dir.exists()) {
                 debug "  ${dir.file.absolutePath}"
                 fileset(dir: dir.file.absolutePath)

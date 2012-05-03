@@ -17,6 +17,7 @@
 import griffon.util.GriffonNameUtils
 import griffon.util.GriffonUtil
 import griffon.util.Metadata
+
 import static griffon.util.GriffonNameUtils.capitalize
 
 /**
@@ -54,6 +55,12 @@ app.defaultPackageName = '$defaultPackageName'
         replacefilter(token: "@griffonAppVersion@", value: griffonAppVersion ?: "0.1")
     }
 
+    Metadata md = Metadata.getInstance(new File("${basedir}/application.properties"))
+    ant.replace(dir: "${basedir}/griffon-app/conf", includes: 'Config.groovy') {
+        replacefilter(token: "@application.toolkit@", value: md.getApplicationToolkit() ?: 'swing')
+    }
+
+    event('CreateProject', ['application', basedir, griffonAppName])
     event('StatusFinal', ["Created Griffon Application at $basedir"])
 }
 
@@ -121,6 +128,7 @@ target(name: 'createPlugin', description: '',
         replacefilter(token: "@griffon.version@", value: griffonVersion)
     }
 
+    event('CreateProject', ['plugin', basedir, pluginName])
     event('StatusFinal', ["Created plugin ${pluginName}"])
 }
 
@@ -162,6 +170,7 @@ target(name: 'createArchetype', description: '',
         replacefilter(token: '@griffon.version@', value: griffonVersion)
     }
 
+    event('CreateProject', ['archetype', basedir, archetypeName])
     event('StatusFinal', ["Created archetype ${archetypeName}"])
 }
 

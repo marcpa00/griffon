@@ -21,8 +21,10 @@
  * Time: 10:35:06 PM
  */
 
-import griffon.util.GriffonNameUtils
+
 import static griffon.util.GriffonApplicationUtils.isMacOSX
+import static griffon.util.GriffonNameUtils.quote
+import static griffon.util.GriffonNameUtils.getNaturalName
 
 includeTargets << griffonScript('Package')
 includeTargets << griffonScript('_GriffonBootstrap')
@@ -97,12 +99,20 @@ target('doRunApp': "Runs the application from the command line") {
         javaOpts << "-XX:PermSize=$buildConfig.griffon.memory.minPermSize"
     }
     if (isMacOSX) {
-        javaOpts << "-Xdock:name=${GriffonNameUtils.capitalize(griffonAppName)}"
+        javaOpts << "-Xdock:name=${getNaturalName(griffonAppName)}"
         javaOpts << "-Xdock:icon=${resolveApplicationIcnsFile().absolutePath}"
     }
 
     debug("Running JVM options:")
     javaOpts.each { debug("  $it") }
+
+    sysProperties.'griffon.application.name' = getNaturalName(griffonAppName)
+    List sysprops = []
+    debug("System properties:")
+    sysProperties.each { key, value ->
+        debug("$key = $value")
+        sysprops << "-D${key}=${quote(value)}"
+    }
 
     def runtimeClasspath = runtimeJars.collect { f ->
         f.absolutePath.startsWith(jardir.absolutePath) ? f.absolutePath - jardir.absolutePath - File.separator : f
@@ -116,6 +126,7 @@ target('doRunApp': "Runs the application from the command line") {
         def cmd = [javaVM]
         // let's make sure no empty/null String is added
         javaOpts.each { s -> if (s) cmd << s }
+        sysprops.each { s -> if (s) cmd << s }
         [proxySettings, '-classpath', runtimeClasspath, griffonApplicationClass].each { s -> if (s) cmd << s }
         argsMap.params.each { s -> cmd << s.trim() }
         debug("Executing ${cmd.join(' ')}")

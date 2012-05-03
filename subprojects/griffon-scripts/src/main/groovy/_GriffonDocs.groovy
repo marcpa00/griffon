@@ -15,14 +15,11 @@
  */
 
 import grails.doc.DocPublisher
-import griffon.util.GriffonUtil
-import org.codehaus.griffon.documentation.DocumentationContext
-import org.codehaus.griffon.documentation.DocumentedMethod
+import griffon.util.ArtifactSettings
+import griffon.util.GriffonNameUtils
+import org.codehaus.griffon.artifacts.model.Plugin
 import org.codehaus.griffon.documentation.PdfBuilder
 import org.codehaus.griffon.resolve.IvyDependencyManager
-import org.codehaus.griffon.artifacts.ArtifactUtils
-import org.codehaus.griffon.artifacts.model.Plugin
-import griffon.util.GriffonNameUtils
 
 /**
  * @author Graeme Rocher (Grails 1.0)
@@ -197,41 +194,6 @@ target(refdocs: "Generates Griffon style reference documentation") {
     def srcDocsRef = new File("${basedir}/src/docs/ref")
     def srcDocsImg = new File("${basedir}/src/docs/img")
 
-    def context = DocumentationContext.getInstance()
-    if (context?.hasMetadata()) {
-        for (DocumentedMethod m in context.methods) {
-            if (m.artefact && m.artefact != 'Unknown') {
-                String refDir = "${srcDocs}/ref/${GriffonUtil.getNaturalName(m.artefact)}"
-                ant.mkdir(dir: refDir)
-                def refFile = new File("${refDir}/${m.name}.gdoc")
-                if (!refFile.exists()) {
-                    println "Generating documentation ${refFile}"
-                    refFile.write """
-h1. ${m.name}
-
-h2. Purpose
-
-${m.text ?: ''}
-
-h2. Examples
-
-{code:java}
-foo.${m.name}(${m.arguments?.collect {GriffonUtil.getPropertyName(it)}.join(',')})
-{code}
-
-h2. Description
-
-${m.text ?: ''}
-
-Arguments:
-
-${m.arguments?.collect { '* @' + GriffonUtil.getPropertyName(it) + '@\n' }}
-"""
-                }
-            }
-        }
-    }
-
     if (srcDocsGuide.exists() || srcDocsRef.exists()) {
         File refDocsDir = new File("${griffonSettings.docsOutputDir}/manual")
         ant.mkdir(dir: "${refDocsDir}/img")
@@ -351,7 +313,7 @@ private readIfSet(DocPublisher publisher, String prop) {
 }
 
 private loadBasePlugin() {
-    pluginDescriptor = ArtifactUtils.getPluginDescriptor(basedir)
+    pluginDescriptor = ArtifactSettings.getPluginDescriptor(basedir)
     pluginDescriptor?.exists() ? loadArtifactInfo(Plugin.TYPE, pluginDescriptor) : null
 }
 
